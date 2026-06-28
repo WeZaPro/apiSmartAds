@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Video Streaming Window</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  </head>
+  <body
+    class="bg-slate-900 font-sans min-h-screen flex flex-col items-center justify-center p-4 md:p-8 text-slate-100"
+  >
+    <div
+      class="w-full max-w-4xl bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 overflow-hidden"
+    >
+      <div
+        class="bg-slate-950 px-6 py-4 border-b border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4"
+      >
+        <h1
+          class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"
+        >
+          🎬 Universal Video Player
+        </h1>
+
+        <form
+          id="videoForm"
+          class="flex w-full sm:w-auto max-w-md flex-1 gap-2"
+        >
+          <input
+            type="url"
+            id="videoUrl"
+            placeholder="วางลิงก์ YouTube หรือ TikTok ที่นี่..."
+            required
+            class="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm text-slate-200 placeholder-slate-500"
+          />
+          <button
+            type="submit"
+            class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-5 py-2 rounded-xl text-sm transition duration-200 shrink-0"
+          >
+            เล่นวิดีโอ
+          </button>
+        </form>
+      </div>
+
+      <div class="p-6 bg-slate-850 flex justify-center items-center">
+        <div
+          id="videoWrapper"
+          class="w-full aspect-video bg-slate-950 rounded-xl overflow-hidden shadow-inner flex flex-col items-center justify-center border border-slate-800 max-w-full transition-all duration-300"
+        >
+          <div id="placeholderText" class="text-center p-8">
+            <p class="text-slate-400 text-lg mb-2">
+              ยังไม่มีวิดีโอที่กำลังเล่น
+            </p>
+            <p class="text-slate-500 text-sm">
+              วางลิงก์วิดีโอจาก YouTube หรือ TikTok ด้านบนเพื่อเริ่มต้น
+            </p>
+          </div>
+
+          <iframe
+            id="videoPlayer"
+            class="hidden w-full h-full"
+            allowfullscreen
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          >
+          </iframe>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const videoForm = document.getElementById("videoForm");
+      const videoUrlInput = document.getElementById("videoUrl");
+      const videoPlayer = document.getElementById("videoPlayer");
+      const placeholderText = document.getElementById("placeholderText");
+      const videoWrapper = document.getElementById("videoWrapper");
+
+      // ฟังก์ชันแปลงลิงก์ธรรมดาให้เป็นลิงก์สำหรับ Embed (ฝังหน้าเว็บ)
+      function getEmbedUrl(url) {
+        try {
+          const urlObj = new URL(url);
+
+          // 1. จัดการลิงก์ YouTube
+          if (
+            urlObj.hostname.includes("youtube.com") ||
+            urlObj.hostname.includes("youtu.be")
+          ) {
+            let videoId = "";
+            if (urlObj.hostname.includes("youtu.be")) {
+              videoId = urlObj.pathname.split("/")[1];
+            } else if (urlObj.pathname.includes("shorts")) {
+              videoId = urlObj.pathname.split("/")[2];
+            } else {
+              videoId = urlObj.searchParams.get("v");
+            }
+
+            if (videoId) {
+              // ปรับหน้าต่างเป็นแนวนอน 16:9 สำหรับ YouTube ทั่วไป
+              videoWrapper.className =
+                "w-full aspect-video bg-slate-950 rounded-xl overflow-hidden border border-slate-800";
+              return `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+            }
+          }
+
+          // 2. จัดการลิงก์ TikTok
+          if (urlObj.hostname.includes("tiktok.com")) {
+            // ดึงตัวเลข Video ID จากท้ายลิงก์ TikTok
+            const pathParts = urlObj.pathname.split("/");
+            const videoId = pathParts[pathParts.length - 1];
+
+            if (videoId && !isNaN(videoId)) {
+              // ปรับหน้าต่างเป็นแนวตั้ง (สไตล์สมาร์ทโฟน) สำหรับ TikTok
+              videoWrapper.className =
+                "w-[360px] h-[640px] max-w-full bg-slate-950 rounded-xl overflow-hidden border border-slate-800";
+              return `https://www.tiktok.com/embed/v2/${videoId}`;
+            }
+          }
+
+          return null;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      // เมื่อกดปุ่มเล่นวิดีโอ
+      videoForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const inputUrl = videoUrlInput.value.trim();
+        const embedUrl = getEmbedUrl(inputUrl);
+
+        if (embedUrl) {
+          // ซ่อนข้อความแจ้งเตือน แล้วแสดงหน้าต่างวิดีโอ
+          placeholderText.classList.add("hidden");
+          videoPlayer.classList.remove("hidden");
+          videoPlayer.src = embedUrl;
+        } else {
+          alert(
+            "ขออภัย ลิงก์ไม่ถูกต้อง หรือไม่รองรับระบบในขณะนี้ (กรุณาใช้ลิงก์จาก YouTube หรือ TikTok)"
+          );
+        }
+      });
+    </script>
+  </body>
+</html>

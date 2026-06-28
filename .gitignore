@@ -1,0 +1,6 @@
+node_modules/
+.env
+.env.example
+api_source
+database
+Dockerfile
