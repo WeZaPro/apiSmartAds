@@ -62,7 +62,8 @@ const upload = multer({
 });
 
 // ============ MQTT CONFIG ============
-const ENV = process.env.NODE_ENV || "DEV";
+// const ENV = process.env.NODE_ENV || "DEV";
+const ENV = process.env.NODE_ENV || "PRODUCTION";
 const SKIP_DB = process.env.SKIP_DB === "true";
 
 const MQTT_CONFIG = {
@@ -92,8 +93,8 @@ let pool = null;
 if (!SKIP_DB) {
   pool = mysql.createPool({
     host: process.env.DB_HOST || "localhost",
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASSWORD || "",
+    user: process.env.DB_USER || "happyevvip",
+    password: process.env.DB_PASSWORD || "Taweesak@5050",
     database: process.env.DB_NAME || "smart_ads",
     connectionLimit: 10,
   });
@@ -615,6 +616,11 @@ setInterval(async () => {
     );
   }
 }, 60000);
+
+// สั่งให้เมื่อเปิดหน้าแรก (/) แล้วให้ส่งไฟล์ index.html กลับไปที่เบราว์เซอร์
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "templates", "index.html"));
+});
 
 // ============ REST API: HEALTH ============
 app.get("/health", (_, res) =>

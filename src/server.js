@@ -24,6 +24,7 @@ const uploadDirs = {
   videos: path.join(__dirname, "..", "videos"),
   covers: path.join(__dirname, "..", "uploads", "covers"),
   promos: path.join(__dirname, "..", "uploads", "promos"),
+  menuCover: path.join(__dirname, "..", "uploads", "menuCover"),
 };
 
 Object.values(uploadDirs).forEach((dir) => {
@@ -35,6 +36,7 @@ const storage = multer.diskStorage({
     if (file.fieldname === "video") cb(null, uploadDirs.videos);
     else if (file.fieldname === "image_cover") cb(null, uploadDirs.covers);
     else if (file.fieldname === "image_promo") cb(null, uploadDirs.promos);
+    else if (file.fieldname === "cover_image") cb(null, uploadDirs.menuCover);
     else cb(null, uploadDirs.videos);
   },
   filename: (req, file, cb) => {
@@ -89,16 +91,28 @@ console.log(`🔌 MQTT ENV: ${ENV} → ${mqttConfig.url}`);
 const mqttClient = mqtt.connect(mqttConfig.url, mqttConfig.options);
 
 // ============ DATABASE ============
+// ============ DATABASE ============
 let pool = null;
 if (!SKIP_DB) {
-  pool = mysql.createPool({
-    host: process.env.DB_HOST || "localhost",
-    user: process.env.DB_USER || "happyevvip",
-    password: process.env.DB_PASSWORD || "Taweesak@5050",
-    database: process.env.DB_NAME || "smart_ads",
-    connectionLimit: 10,
-  });
-  console.log("🗄️ DB pool created");
+  const DB_CONFIG = {
+    DEV: {
+      host: process.env.DB_HOST || "localhost",
+      user: process.env.DB_USER || "root",
+      password: process.env.DB_PASSWORD || "",
+      database: process.env.DB_NAME || "smart_ads",
+      connectionLimit: 10,
+    },
+    PRODUCTION: {
+      host: process.env.DB_HOST || "localhost",
+      user: process.env.DB_USER || "happyevvip",
+      password: process.env.DB_PASSWORD || "Taweesak@5050",
+      database: process.env.DB_NAME || "smart_ads",
+      connectionLimit: 10,
+    },
+  };
+
+  pool = mysql.createPool(DB_CONFIG[ENV] || DB_CONFIG.DEV);
+  console.log(`🗄️ DB pool created (${ENV})`);
 } else {
   console.log("⚠️ DB skipped (SKIP_DB=true)");
 }
@@ -1077,6 +1091,109 @@ app.post(
     }
   }
 );
+// ============ CRUD: TABLET MENU ============
+app.post(
+  "/api/menu",
+  upload.fields([{ name: "cover_image", maxCount: 1 }]),
+  async (req, res) => {
+    try {
+      const { web_url, header, body: bodyText } = req.body;
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      let cover_image_url = req.body.cover_image_url || null;
+
+      if (req.files?.cover_image?.[0]) {
+        cover_image_url = `${baseUrl}/uploads/menuCover/${req.files.cover_image[0].filename}`;
+      }
+
+      const result = await dbQuery(
+        `INSERT INTO tablet_menu (cover_image_url, web_url, header, body) VALUES (?,?,?,?)`,
+        [cover_image_url, web_url || null, header || null, bodyText || null]
+      );
+
+      res.json({
+        status: "created",
+        id: result?.insertId,
+        cover_image_url,
+        web_url,
+        header,
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  }
+);
+
+app.get("/api/menu", async (_, res) => {
+  const rows = await dbQuery(
+    "SELECT * FROM tablet_menu WHERE active=1 ORDER BY id DESC"
+  );
+  res.json({ menu: rows || [], count: rows?.length || 0 });
+});
+
+app.get("/api/menu/:id", async (req, res) => {
+  const rows = await dbQuery("SELECT * FROM tablet_menu WHERE id=?", [
+    req.params.id,
+  ]);
+  if (!rows || rows.length === 0)
+    return res.status(404).json({ error: "Menu not found" });
+  res.json(rows[0]);
+});
+
+app.put(
+  "/api/menu/:id",
+  upload.fields([{ name: "cover_image", maxCount: 1 }]),
+  async (req, res) => {
+    try {
+      const { web_url, header, body: bodyText, active } = req.body;
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const fields = [];
+      const params = [];
+
+      if (req.files?.cover_image?.[0]) {
+        fields.push("cover_image_url=?");
+        params.push(
+          `${baseUrl}/uploads/menuCover/${req.files.cover_image[0].filename}`
+        );
+      } else if (req.body.cover_image_url !== undefined) {
+        fields.push("cover_image_url=?");
+        params.push(req.body.cover_image_url);
+      }
+      if (web_url !== undefined) {
+        fields.push("web_url=?");
+        params.push(web_url);
+      }
+      if (header !== undefined) {
+        fields.push("header=?");
+        params.push(header);
+      }
+      if (bodyText !== undefined) {
+        fields.push("body=?");
+        params.push(bodyText);
+      }
+      if (active !== undefined) {
+        fields.push("active=?");
+        params.push(active);
+      }
+
+      if (fields.length === 0)
+        return res.status(400).json({ error: "No fields to update" });
+
+      params.push(req.params.id);
+      await dbQuery(
+        `UPDATE tablet_menu SET ${fields.join(",")} WHERE id=?`,
+        params
+      );
+      res.json({ status: "updated", id: req.params.id });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  }
+);
+
+app.delete("/api/menu/:id", async (req, res) => {
+  await dbQuery("DELETE FROM tablet_menu WHERE id=?", [req.params.id]);
+  res.json({ status: "deleted", id: req.params.id });
+});
 
 // ============ START SERVER ============
 const PORT = process.env.PORT || 9358;
