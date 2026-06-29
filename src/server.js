@@ -300,13 +300,13 @@ mqttClient.on("message", async (topic, message) => {
           );
         }
         // Memory warning
-        if (data.memoryMB && data.memoryMB > 700) {
+        if (data.memoryMB && data.memoryMB > 900) {
           console.log(
-            `⚠️ WARNING: ${tabletId} memory=${data.memoryMB}MB > 700MB!`
+            `⚠️ WARNING: ${tabletId} memory=${data.memoryMB}MB > 900MB!`
           );
         }
         // Memory critical → reboot
-        if (data.memoryMB && data.memoryMB > 1000) {
+        if (data.memoryMB && data.memoryMB > 1200) {
           console.log(
             `🚨 CRITICAL: ${tabletId} memory=${data.memoryMB}MB → reboot!`
           );
